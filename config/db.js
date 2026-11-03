@@ -2,15 +2,12 @@
 import { MongoClient, ServerApiVersion } from 'mongodb';
 import 'dotenv/config';
 
-// MongoDB connection string
 const uri = process.env.MONGODB_URI;
 
-// Check MongoDB connection string
 if (!uri) {
   throw new Error('MONGODB_URI is missing from environment variables.');
 }
 
-// MongoDB Client
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -19,19 +16,17 @@ const client = new MongoClient(uri, {
   },
 });
 
-// Connect to MongoDB
 export async function connectDB() {
   try {
-    // Connect MongoDB client
     await client.connect();
 
-    // Select database
     const db = client.db('event8DB');
 
-    // Events collection
+    // =====================================
+    // EVENTS COLLECTION INDEXES
+    // =====================================
     const eventsCollection = db.collection('events');
 
-    // Create Events indexes
     await eventsCollection.createIndexes([
       {
         key: { creatorId: 1, createdAt: -1 },
@@ -43,23 +38,58 @@ export async function connectDB() {
       },
     ]);
 
-    // Event joins collection
+    // =====================================
+    // EVENT JOINS COLLECTION INDEXES
+    // =====================================
     const joinsCollection = db.collection('eventJoins');
 
-    // Create Event joins indexes
+    // Read existing indexes
+    const existingIndexes = await joinsCollection.indexes();
+
+    // Remove old unique join index if it uses userEmail
+    const oldUniqueIndex = existingIndexes.find(
+      (index) => index.name === 'unique_event_user_join'
+    );
+
+    if (
+      oldUniqueIndex &&
+      oldUniqueIndex.key.eventId === 1 &&
+      oldUniqueIndex.key.userEmail === 1
+    ) {
+      await joinsCollection.dropIndex('unique_event_user_join');
+      console.log('Old unique join index removed.');
+    }
+
+    // Remove old user joined events index if it uses userEmail
+    const oldUserIndex = existingIndexes.find(
+      (index) => index.name === 'user_joined_events'
+    );
+
+    if (
+      oldUserIndex &&
+      oldUserIndex.key.userEmail === 1 &&
+      oldUserIndex.key.joinedAt === -1
+    ) {
+      await joinsCollection.dropIndex('user_joined_events');
+      console.log('Old user joined index removed.');
+    }
+
+    // Create updated indexes
     await joinsCollection.createIndexes([
       {
-        key: { eventId: 1, userEmail: 1 },
+        key: { eventId: 1, userId: 1 },
         name: 'unique_event_user_join',
         unique: true,
       },
       {
-        key: { userEmail: 1, joinedAt: -1 },
+        key: { userId: 1, joinedAt: -1 },
         name: 'user_joined_events',
       },
     ]);
 
-    // Test database connection
+    // =====================================
+    // TEST DATABASE CONNECTION
+    // =====================================
     await db.command({ ping: 1 });
 
     console.log('MongoDB Connected Successfully!');
