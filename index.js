@@ -13,11 +13,15 @@ import { verifyToken } from './middleware/verifyToken.js';
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Allowed frontend origins
 const allowedOrigins = (process.env.CLIENT_URL || '')
   .split(',')
   .map((url) => url.trim().replace(/\/$/, ''))
   .filter(Boolean);
 
+console.log('Allowed CORS origins:', allowedOrigins);
+
+// CORS configuration
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -25,6 +29,7 @@ app.use(
         return callback(null, true);
       }
 
+      console.error('Blocked CORS origin:', origin);
       return callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
@@ -33,6 +38,7 @@ app.use(
   })
 );
 
+// Server health check
 app.get('/', (req, res) => {
   res.status(200).json({
     success: true,
@@ -40,6 +46,7 @@ app.get('/', (req, res) => {
   });
 });
 
+// Protected API test
 app.get('/api/protected-test', verifyToken, (req, res) => {
   res.status(200).json({
     success: true,
@@ -50,22 +57,28 @@ app.get('/api/protected-test', verifyToken, (req, res) => {
 
 async function startServer() {
   try {
+    // Connect MongoDB
     const db = await connectDB();
+
+    // Initialize Better Auth
     const auth = createAuth(db);
 
     // Better Auth handler must come before express.json()
     app.all('/api/auth/*splat', toNodeHandler(auth));
 
+    // Parse JSON request bodies
     app.use(express.json());
 
+    // Attach database to requests
     app.use((req, res, next) => {
       req.db = db;
       next();
     });
 
+    // Event routes
     app.use('/api/events', eventRoutes);
 
-    // Handle unknown routes
+    // 404 handler
     app.use((req, res) => {
       res.status(404).json({
         success: false,
@@ -73,7 +86,7 @@ async function startServer() {
       });
     });
 
-    // Centralized error handling
+    // Centralized error handler
     app.use((error, req, res, next) => {
       console.error('API Error:', error);
 
@@ -81,7 +94,6 @@ async function startServer() {
         return next(error);
       }
 
-      // Handle invalid JSON
       if (
         error instanceof SyntaxError &&
         error.status === 400 &&
@@ -89,7 +101,7 @@ async function startServer() {
       ) {
         return res.status(400).json({
           success: false,
-          message: 'Invalid JSON format. Please check your request body.',
+          message: 'Invalid JSON format.',
         });
       }
 
