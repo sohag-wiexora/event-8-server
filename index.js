@@ -13,7 +13,7 @@ import { verifyToken } from './middleware/verifyToken.js';
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Allowed frontend origins
+
 const allowedOrigins = new Set(
   [
     'https://event-8-vert.vercel.app',
@@ -27,7 +27,7 @@ const allowedOrigins = new Set(
 
 console.log('Allowed CORS origins:', [...allowedOrigins]);
 
-// CORS configuration
+
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -44,7 +44,7 @@ app.use(
   })
 );
 
-// Server health check
+
 app.get('/', (req, res) => {
   res.status(200).json({
     success: true,
@@ -52,7 +52,7 @@ app.get('/', (req, res) => {
   });
 });
 
-// Protected API test
+
 app.get('/api/protected-test', verifyToken, (req, res) => {
   res.status(200).json({
     success: true,
@@ -63,28 +63,28 @@ app.get('/api/protected-test', verifyToken, (req, res) => {
 
 async function startServer() {
   try {
-    // Connect MongoDB
+    
     const db = await connectDB();
 
-    // Initialize Better Auth
+    
     const auth = createAuth(db);
 
-    // Better Auth handler must come before express.json()
+    
     app.all('/api/auth/*splat', toNodeHandler(auth));
 
-    // Parse JSON request bodies
+    
     app.use(express.json());
 
-    // Attach database to requests
+    
     app.use((req, res, next) => {
       req.db = db;
       next();
     });
 
-    // Event routes
+    
     app.use('/api/events', eventRoutes);
 
-    // 404 handler
+   
     app.use((req, res) => {
       res.status(404).json({
         success: false,
@@ -92,7 +92,7 @@ async function startServer() {
       });
     });
 
-    // Centralized error handler
+    
     app.use((error, req, res, next) => {
       console.error('API Error:', error);
 
@@ -122,7 +122,7 @@ async function startServer() {
       });
     });
 
-    // Start server
+    
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
     });
