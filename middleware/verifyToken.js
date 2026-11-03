@@ -1,8 +1,16 @@
 
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 
+const AUTH_URL = process.env.BETTER_AUTH_URL;
+
+if (!AUTH_URL) {
+  throw new Error('BETTER_AUTH_URL is not configured.');
+}
+
+const AUTH_BASE_URL = AUTH_URL.replace(/\/$/, '');
+
 const JWKS = createRemoteJWKSet(
-  new URL('http://localhost:5000/api/auth/jwks')
+  new URL(`${AUTH_BASE_URL}/api/auth/jwks`)
 );
 
 export async function verifyToken(req, res, next) {
@@ -16,12 +24,12 @@ export async function verifyToken(req, res, next) {
       });
     }
 
-    const token = authHeader.split(' ')[1];
+    const token = authHeader.slice(7);
 
     const { payload } = await jwtVerify(token, JWKS, {
       algorithms: ['EdDSA'],
-      issuer: 'http://localhost:5000',
-      audience: 'http://localhost:5000',
+      issuer: AUTH_BASE_URL,
+      audience: AUTH_BASE_URL,
     });
 
     if (!payload.sub) {

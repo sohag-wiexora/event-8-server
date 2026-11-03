@@ -13,17 +13,26 @@ import { verifyToken } from './middleware/verifyToken.js';
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// CORS configuration
+const allowedOrigins = (process.env.CLIENT_URL || '')
+  .split(',')
+  .map((url) => url.trim().replace(/\/$/, ''))
+  .filter(Boolean);
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   })
 );
 
-// Health check
 app.get('/', (req, res) => {
   res.status(200).json({
     success: true,
@@ -31,7 +40,6 @@ app.get('/', (req, res) => {
   });
 });
 
-// JWT authentication test
 app.get('/api/protected-test', verifyToken, (req, res) => {
   res.status(200).json({
     success: true,
@@ -42,25 +50,19 @@ app.get('/api/protected-test', verifyToken, (req, res) => {
 
 async function startServer() {
   try {
-    // Connect MongoDB
     const db = await connectDB();
-
-    // Initialize Better Auth
     const auth = createAuth(db);
 
     // Better Auth handler must come before express.json()
     app.all('/api/auth/*splat', toNodeHandler(auth));
 
-    // Parse JSON request body
     app.use(express.json());
 
-    // Attach database to request
     app.use((req, res, next) => {
       req.db = db;
       next();
     });
 
-    // Event API routes
     app.use('/api/events', eventRoutes);
 
     // Handle unknown routes
@@ -71,16 +73,15 @@ async function startServer() {
       });
     });
 
-    // Centralized error handling middleware
+    // Centralized error handling
     app.use((error, req, res, next) => {
       console.error('API Error:', error);
 
-      // Check if response has already been sent
       if (res.headersSent) {
         return next(error);
       }
 
-      // Handle invalid JSON request body
+      // Handle invalid JSON
       if (
         error instanceof SyntaxError &&
         error.status === 400 &&
@@ -92,10 +93,8 @@ async function startServer() {
         });
       }
 
-      // Determine HTTP status code
       const statusCode = error.status || error.statusCode || 500;
 
-      // Send consistent error response
       return res.status(statusCode).json({
         success: false,
         message:
@@ -105,7 +104,6 @@ async function startServer() {
       });
     });
 
-    // Start Express server
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
     });

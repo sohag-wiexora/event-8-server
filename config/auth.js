@@ -4,15 +4,18 @@ import { mongodbAdapter } from '@better-auth/mongo-adapter';
 import { jwt } from 'better-auth/plugins';
 
 export function createAuth(db) {
+  const trustedOrigins = (process.env.CLIENT_URL || '')
+    .split(',')
+    .map((url) => url.trim().replace(/\/$/, ''))
+    .filter(Boolean);
+
   return betterAuth({
     database: mongodbAdapter(db),
 
     baseURL: process.env.BETTER_AUTH_URL,
     secret: process.env.BETTER_AUTH_SECRET,
 
-    trustedOrigins: [
-      process.env.CLIENT_URL
-    ],
+    trustedOrigins,
 
     emailAndPassword: {
       enabled: true,
