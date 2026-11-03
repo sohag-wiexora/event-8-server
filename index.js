@@ -14,18 +14,24 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Allowed frontend origins
-const allowedOrigins = (process.env.CLIENT_URL || '')
-  .split(',')
-  .map((url) => url.trim().replace(/\/$/, ''))
-  .filter(Boolean);
+const allowedOrigins = new Set(
+  [
+    'https://event-8-vert.vercel.app',
+    'https://event-8-7wkdta5b8-programar-md-sohag-chowdhuri.vercel.app',
+    'http://localhost:3000',
+    ...(process.env.CLIENT_URL || '').split(','),
+  ]
+    .map((url) => url.trim().replace(/\/$/, ''))
+    .filter(Boolean)
+);
 
-console.log('Allowed CORS origins:', allowedOrigins);
+console.log('Allowed CORS origins:', [...allowedOrigins]);
 
 // CORS configuration
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin || allowedOrigins.has(origin)) {
         return callback(null, true);
       }
 
@@ -116,6 +122,7 @@ async function startServer() {
       });
     });
 
+    // Start server
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
     });
